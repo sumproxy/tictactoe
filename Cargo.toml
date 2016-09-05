@@ -1,0 +1,11 @@
+[package]
+name = "tictactoe"
+version = "0.1.0"
+authors = ["Sum Proxy <sum.proxy@gmail.com>"]
+license = "MIT"
+keywords = ["game", "tic tac toe"]
+homepage = "https://github.com/sumproxy/tictactoe"
+
+[dependencies]
+piston_window = "*"
+find_folder = "*"
