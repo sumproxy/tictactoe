@@ -131,22 +131,22 @@ fn main() {
                 for (x, cell) in row.into_iter().enumerate() {
                     let x = x as f64;
                     let ct = c.transform.trans(100.0*x, 95.0+100.0*y);
-                    match cell {
+                    match *cell {
                         // Print "O" character on the board
-                        &Some(Player::O) => text::Text::new_color(black, 150).draw(
+                        Some(Player::O) => text::Text::new_color(black, 150).draw(
                             "o",
                             &mut glyphs,
                             &c.draw_state,
                             ct, g
                         ),
                         // Print "X" character on the board
-                        &Some(Player::X) => text::Text::new_color(black, 150).draw(
+                        Some(Player::X) => text::Text::new_color(black, 150).draw(
                             "x",
                             &mut glyphs,
                             &c.draw_state,
                             ct, g
                         ),
-                        &None => {}
+                        None => {}
                     }
                 }
             }
