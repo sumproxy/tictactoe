@@ -2,44 +2,75 @@ extern crate piston_window;
 extern crate find_folder;
 
 use piston_window::*;
+use std::ops::{Index, IndexMut};
     
 #[derive(Copy, Clone, PartialEq)]
-enum Player {
-    X,
-    O,
-}
+enum Player { X, O }
 
-fn winner(board: &[[Option<Player>; 3]; 3], last_move: (usize, usize)) -> Option<Player> {
-    let (y, x) = last_move;
-    let player = board[y][x];
+struct Board([[Option<Player>; 3]; 3]);
 
-    // check row
-    if board[y][0] == player && board[y][1] == player && board[y][2] == player {
-        return player;
+impl Board {
+    fn new() -> Self {
+        Board([[None; 3]; 3])
     }
 
-    // check column
-    if board[0][x] == player && board[1][x] == player && board[2][x] == player {
-        return player;
-    }
+    fn winner(&self, last_move: (usize, usize)) -> Option<Player> {
+        let (y, x) = last_move;
+        let board = self.0;
+        let player = board[y][x];
 
-    match (y, x) {
-        // not on a diagonal
-        (0, 1) | (1, 0) | (1, 2) | (2, 1) => None,
-        
-        (y, x) => {
-            // on a primary diagonal
-            if y == x && board[0][0] == player && board[1][1] == player && board[2][2] == player {
-                player
-            }
-            // on a secondary diagonal
-            else if y + x == 2 && board[0][2] == player && board[1][1] == player && board[2][0] == player {
-                player
-            }
-            else {
-                None
+        // check row
+        if board[y][0] == player && board[y][1] == player && board[y][2] == player {
+            return player;
+        }
+
+        // check column
+        if board[0][x] == player && board[1][x] == player && board[2][x] == player {
+            return player;
+        }
+
+        match (y, x) {
+            // not on a diagonal
+            (0, 1) | (1, 0) | (1, 2) | (2, 1) => None,
+            
+            (y, x) => {
+                // on a primary diagonal
+                if y == x && board[0][0] == player && board[1][1] == player && board[2][2] == player {
+                    player
+                }
+                // on a secondary diagonal
+                else if y + x == 2 && board[0][2] == player && board[1][1] == player && board[2][0] == player {
+                    player
+                }
+                // everything else
+                else {
+                    None
+                }
             }
         }
+    }
+}
+
+impl Index<usize> for Board {
+    type Output = [Option<Player>; 3];
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl IndexMut<usize> for Board {
+    fn index_mut<'a>(&'a mut self, index: usize) -> &'a mut [Option<Player>; 3] {
+        &mut self.0[index]
+    }
+}
+
+impl<'a> IntoIterator for &'a Board {
+    type Item = &'a [Option<Player>; 3];
+    type IntoIter = std::slice::Iter<'a, [Option<Player>; 3]>;
+    
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -55,13 +86,15 @@ fn main() {
 
     // find the assets folder
     let assets = find_folder::Search::ParentsThenKids(3, 3)
-        .for_folder("assets").unwrap();
+        .for_folder("assets")
+        .unwrap();
+    
     let font = assets.join("Verdana.ttf");
     let factory = window.factory.clone();
 
     // get font glyphs
     let mut glyphs = Glyphs::new(font, factory).unwrap();
-    let mut board = [[None; 3]; 3];
+    let mut board = Board::new();
     // click event flag
     let mut click = false;
     // gameover flag
@@ -99,7 +132,7 @@ fn main() {
             if board[y][x] == None {
                 board[y][x] = Some(player);
                 // We have a winner!
-                if let Some(winner) = winner(&board, (y, x)) {
+                if let Some(winner) = board.winner((y, x)) {
                     match winner {
                         Player::X => window.set_title("X wins!".to_string()),
                         Player::O => window.set_title("O wins!".to_string()),
