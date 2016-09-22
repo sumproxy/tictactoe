@@ -1,6 +1,6 @@
 # tic-tac-toe
 
-To run the game
+To run the game:
 
 Install rust compiler either following the instructions [here](https://www.rust-lang.org/) or using [rustup](https://www.rustup.rs/)
 
