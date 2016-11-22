@@ -1,12 +1,142 @@
 extern crate piston_window;
 extern crate find_folder;
+extern crate websocket;
 
 use piston_window::*;
     
 mod board;
 use board::{Board, Player};
 
+use std::error::Error;
+
 fn main() {
+    use std::thread;
+    use std::sync::mpsc::channel;
+    use std::io::stdin;
+
+    use websocket::{Message, Sender, Receiver};
+    use websocket::message::Type;
+    use websocket::client::request::Url;
+    use websocket::Client;
+
+    let url = Url::parse("ws://localhost:5000").unwrap();
+    let request = Client::connect(url).expect("Couldn't connect to server");
+
+    // Send the request and retrieve a response
+    let response = request.send().expect("Failed to retrieve a response");
+
+    // Validate the response
+    response.validate().expect("Response invalid");
+
+    let (mut sender, mut receiver) = response.begin().split();
+
+    let (tx, rx) = channel();
+
+    let tx_1 = tx.clone();
+
+    let send_loop = thread::spawn(move || {
+	loop {
+	    // Send loop
+	    let message: Message = match rx.recv() {
+		Ok(m) => m,
+		Err(e) => {
+		    println!("Send Loop: {:?}", e);
+		    return;
+		}
+	    };
+	    match message.opcode {
+		Type::Close => {
+		    let _ = sender.send_message(&message);
+		    // If it's a close message, just send it and then return.
+		    return;
+		},
+		_ => (),
+	    }
+	    // Send the message
+	    match sender.send_message(&message) {
+		Ok(()) => (),
+		Err(e) => {
+		    println!("Send Loop: {:?}", e);
+		    let _ = sender.send_message(&Message::close());
+		    return;
+		}
+	    }
+	}
+    });
+
+    let receive_loop = thread::spawn(move || {
+	// Receive loop
+	for message in receiver.incoming_messages() {
+	    let message: Message = match message {
+		Ok(m) => m,
+		Err(e) => {
+		    println!("Receive Loop: {:?}", e);
+		    let _ = tx_1.send(Message::close());
+		    return;
+		}
+	    };
+	    match message.opcode {
+		Type::Close => {
+		    // Got a close message, so send a close message and return
+		    let _ = tx_1.send(Message::close());
+		    return;
+		}
+		Type::Ping => match tx_1.send(Message::pong(message.payload)) {
+		    // Send a pong in response
+		    Ok(()) => (),
+		    Err(e) => {
+			println!("Receive Loop: {:?}", e);
+			return;
+		    }
+		},
+		// Say what we received
+		_ => {
+                    match std::str::from_utf8(&message.payload) {
+                        Ok(ref s) => println!("Receive Loop: {}", s),
+                        Err(ref e) => println!("Receive Loop: Error: {}", e.description()),
+                    }
+                }
+	    }
+	}
+    });
+
+    loop {
+	let mut input = String::new();
+
+	stdin().read_line(&mut input).unwrap();
+
+	let trimmed = input.trim();
+
+	let message = match trimmed {
+	    "/close" => {
+		// Close the connection
+		let _ = tx.send(Message::close());
+		break;
+	    }
+	    // Send a ping
+	    "/ping" => Message::ping(b"PING".to_vec()),
+	    // Otherwise, just send text
+	    _ => Message::text(trimmed.to_string()),
+	};
+
+	match tx.send(message) {
+	    Ok(()) => (),
+	    Err(e) => {
+		println!("Main Loop: {:?}", e);
+		break;
+	    }
+	}
+    }
+
+    // We're exiting
+
+    println!("Waiting for child threads to exit");
+
+    let _ = send_loop.join();
+    let _ = receive_loop.join();
+
+    println!("Exited");
+
     let black = [0.0, 0.0, 0.0, 1.0];
     let white = [1.0, 1.0, 1.0, 1.0];
     

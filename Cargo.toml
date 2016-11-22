@@ -7,5 +7,6 @@ keywords = ["game", "tic tac toe"]
 homepage = "https://github.com/sumproxy/tictactoe"
 
 [dependencies]
-piston_window = "0.53.0"
-find_folder = "0.3.0"
+piston_window = "*"
+find_folder = "*"
+websocket = "*"
