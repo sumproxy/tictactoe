@@ -48,7 +48,7 @@ fn main() {
     
     let rival_id = std::env::args().nth(2).unwrap_or(String::new());
 
-    let url = Url::parse("ws://localhost:5000").unwrap();
+    let url = Url::parse("wss://tictactoe-serv.herokuapp.com").unwrap();
     let request = Client::connect(url).expect("Couldn't connect to server");
     // Send the request and retrieve a response
     let response = request.send().expect("Failed to retrieve a response");
