@@ -2,6 +2,16 @@ use std::ops::{Index, IndexMut};
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum Player { X, O }
+
+impl Player {
+    pub fn to_string(&self) -> String {
+        match *self {
+            Player::X => "X".to_string(),
+            Player::O => "O".to_string(),
+        }
+    }
+}
+
 pub type Cell = Option<Player>;
 #[derive(Copy, Clone)]
 pub struct Board(pub [[Cell; 3]; 3]);

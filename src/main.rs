@@ -3,6 +3,7 @@ extern crate find_folder;
 extern crate websocket;
 extern crate rustc_serialize;
 extern crate mio;
+extern crate rand;
 
 use piston_window::{PistonWindow, WindowSettings, Glyphs, Button, MouseButton, clear,
                     text, ReleaseEvent, MouseCursorEvent, AdvancedWindow, Transformed,
@@ -14,6 +15,8 @@ use board::{Board, Player};
 use std::error::Error;
 
 use rustc_serialize::json::{self, Json};
+
+use rand::Rng;
 
 #[derive(RustcDecodable, Debug)]
 struct Move {
@@ -36,18 +39,27 @@ fn main() {
     use websocket::Client;
     use websocket::result::WebSocketError;
 
-    const USAGE: &'static str = "Usage: \n\tcargo run your_id [rival's id]";
+    const USAGE: &'static str = "Usage: \n\tcargo run [your_id rival's_id]";
 
-    let player_id = match std::env::args().nth(1) {
-        Some(player_id) => player_id,
+    let (player_id, rival_id) = match std::env::args().nth(1) {
+        Some(player_id) => {
+            let rival_id = match std::env::args().nth(2) {
+                Some(rival_id) => rival_id,
+                None => {
+                    println!("{}", USAGE);
+                    return;
+                }
+            };
+            (player_id, rival_id)
+        },
         None => {
-            println!("{}", USAGE);
-            return;
+            (rand::thread_rng()
+                .gen_ascii_chars()
+                .take(20)
+                .collect(), "".to_string())
         }
     };
     
-    let rival_id = std::env::args().nth(2).unwrap_or(String::new());
-
     let url = Url::parse("wss://tictactoe-serv.herokuapp.com").unwrap();
     let request = Client::connect(url).expect("Couldn't connect to server");
     // Send the request and retrieve a response
@@ -95,6 +107,8 @@ fn main() {
     let mut ignore_incoming_messages = false;
     // gameover flag
     let mut gameover = None;
+    // new game flag
+    let mut newgame = true;
     // timer
     let mut timer = mio::timer::Timer::default();
 
@@ -134,17 +148,31 @@ fn main() {
                                         data = json::decode(s).unwrap();
                                         ignore_click_events = false;
                                         match &*data.gameover {
-                                            "won" =>
-                                                gameover = Some(GameOver::Won),
-                                            "lost" =>
-                                                gameover = Some(GameOver::Lost),
-                                            "draw" =>
-                                                gameover = Some(GameOver::Draw),
+                                            "won" => {
+                                                gameover = Some(GameOver::Won);
+                                            }
+                                            "lost" => {
+                                                gameover = Some(GameOver::Lost);
+                                            }
+                                            "draw" => {
+                                                gameover = Some(GameOver::Draw);
+                                            }
                                             "quit" =>
                                                 gameover = Some(GameOver::Quit),
                                             "false" => {
                                                 gameover = None;
-                                                window.set_title(format!("Your turn, {}", player_id));
+                                                if newgame {
+                                                    if data.last_move.len() == 1 && data.last_move[0] == -1 {
+                                                        player = Player::X;
+                                                        rival = Player::O;
+                                                    }
+                                                    else {
+                                                        player = Player::O;
+                                                        rival = Player::X;
+                                                    }
+                                                    newgame = false;
+                                                }
+                                                window.set_title(format!("Your turn ({})", player.to_string()));
                                             }
                                             _ => ()
                                         }
@@ -190,11 +218,12 @@ fn main() {
                     continue;
                 }
 
-                if data.last_move.len() == 1 && data.last_move[0] == -1 {
-                    player = Player::X;
-                    rival = Player::O;
-                }
-                else if data.gameover != "lost" && data.gameover != "draw" && data.gameover != "quit" {
+                if data.gameover != "lost" &&
+                    data.gameover != "draw" &&
+                    data.gameover != "quit" &&
+                    data.last_move.len() != 1 &&
+                    data.last_move[0] != -1
+                {
                     let m = data.last_move.clone();
                     board[m[0] as usize][m[1] as usize] = Some(rival);
                 }
@@ -286,6 +315,7 @@ fn main() {
                             }
                         }
                         gameover = None;
+                        newgame = true;
                         timer = mio::timer::Timer::default();
                     },
                     None => (),
