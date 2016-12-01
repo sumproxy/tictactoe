@@ -10,3 +10,5 @@ git clone https://github.com/sumproxy/tictactoe.git
 cd tictactoe
 cargo run [your_id rival's_id]
 ```
+
+If you want your own copy of the server follow the instructions [here](https://github.com/sumproxy/tictactoe-server/tree/master)
